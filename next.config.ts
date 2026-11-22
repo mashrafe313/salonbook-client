@@ -9,4 +9,4 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
 };
 
-export default nextConfig;git status
+export default nextConfig;
