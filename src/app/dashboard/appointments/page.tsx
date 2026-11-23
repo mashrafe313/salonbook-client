@@ -66,7 +66,7 @@ export default function MyAppointmentsPage() {
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
-
+const [payingId, setPayingId] = useState<string | null>(null);
   const user = session?.user as
     | { role?: string; isBlocked?: boolean }
     | undefined;
@@ -136,6 +136,37 @@ export default function MyAppointmentsPage() {
       setCancellingId(null);
     }
   }
+
+  async function handleDemoPayment(appointmentId: string) {
+  setPayingId(appointmentId);
+  setFeedback("");
+  setError("");
+
+  try {
+    const result = await authenticatedApiFetch(
+      "/api/transactions/demo",
+      {
+        method: "POST",
+        body: JSON.stringify({ appointmentId }),
+      }
+    );
+
+    setFeedback(
+      result?.message ||
+        "Demo payment completed. No real money was charged."
+    );
+
+    await loadAppointments();
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Unable to complete demo payment."
+    );
+  } finally {
+    setPayingId(null);
+  }
+}
 
   if (isPending || isLoading) {
     return (
@@ -275,6 +306,25 @@ export default function MyAppointmentsPage() {
                     </button>
                   </div>
                 )}
+
+                {appointment.status === "confirmed" &&
+  appointment.paymentStatus === "unpaid" && (
+    <div className="mt-6 border-t border-stone-100 pt-5">
+      <div className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
+        Demo payment only. No real money will be charged.
+      </div>
+
+      <button
+        onClick={() => handleDemoPayment(appointment._id)}
+        disabled={payingId === appointment._id}
+        className="rounded-full bg-rose-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {payingId === appointment._id
+          ? "Processing..."
+          : "Pay Now (Demo)"}
+      </button>
+    </div>
+  )}
               </article>
             ))}
           </div>

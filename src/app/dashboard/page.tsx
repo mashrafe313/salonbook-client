@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
-
+import DashboardStats from "@/components/dashboard/DashboardStats";
 export const instant = false;
 
 export default async function DashboardPage() {
@@ -51,39 +51,11 @@ export default async function DashboardPage() {
 
             <p className="mt-2 text-sm text-stone-500">
               {isAdmin
-                ? "Your platform management overview will appear here."
-                : "Your appointment and booking overview will appear here."}
+                ? "Monitor your platform activity and performance."
+                : "Keep track of your appointments and booking status."}
             </p>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {(isAdmin
-                ? [
-                    "Total Customers",
-                    "Active Services",
-                    "Appointment Requests",
-                  ]
-                : [
-                    "Total Appointments",
-                    "Pending Appointments",
-                    "Confirmed Appointments",
-                  ]
-              ).map((item) => (
-                <div
-                  key={item}
-                  className="rounded-xl border border-stone-200 bg-stone-50 p-5"
-                >
-                  <p className="text-sm font-medium text-stone-600">
-                    {item}
-                  </p>
-                  <p className="mt-3 text-2xl font-bold text-stone-400">
-                    —
-                  </p>
-                  <p className="mt-1 text-xs text-stone-400">
-                    Data integration pending
-                  </p>
-                </div>
-              ))}
-            </div>
+            <DashboardStats role={role} />
           </section>
         </div>
       </div>
