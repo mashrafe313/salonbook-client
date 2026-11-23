@@ -17,9 +17,13 @@ export async function authenticatedApiFetch(
 
   headers.set("Authorization", `Bearer ${data.token}`);
 
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
+  if (
+  options.body &&
+  !(options.body instanceof FormData) &&
+  !headers.has("Content-Type")
+) {
+  headers.set("Content-Type", "application/json");
+}
 
   const response = await fetch(
     `${API_URL.replace(/\/$/, "")}/${path.replace(/^\//, "")}`,

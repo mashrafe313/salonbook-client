@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { authenticatedApiFetch } from "@/lib/api";
 
 type ProfileFormProps = {
   initialName: string;
@@ -22,8 +23,70 @@ export default function ProfileForm({
   const [image, setImage] = useState(initialImage);
   const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+
+  async function handleImageUpload(
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setMessage("");
+    setError("");
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("Please select a JPG, PNG, WEBP, or GIF image.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      setError("Image size must be 3 MB or less.");
+      e.target.value = "";
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const result = await authenticatedApiFetch(
+        "/api/uploads/image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!result?.data?.url) {
+        throw new Error("Image upload failed. Please try again.");
+      }
+
+      setImage(result.data.url);
+      setMessage("Image uploaded successfully. Save your profile to apply it.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not upload image. Please try again."
+      );
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -83,7 +146,10 @@ export default function ProfileForm({
       )}
 
       <div>
-        <label htmlFor="profile-name" className="mb-2 block text-sm font-medium text-stone-700">
+        <label
+          htmlFor="profile-name"
+          className="mb-2 block text-sm font-medium text-stone-700"
+        >
           Full Name
         </label>
         <input
@@ -98,7 +164,10 @@ export default function ProfileForm({
       </div>
 
       <div>
-        <label htmlFor="profile-phone" className="mb-2 block text-sm font-medium text-stone-700">
+        <label
+          htmlFor="profile-phone"
+          className="mb-2 block text-sm font-medium text-stone-700"
+        >
           Phone Number
         </label>
         <input
@@ -113,8 +182,39 @@ export default function ProfileForm({
       </div>
 
       <div>
-        <label htmlFor="profile-image" className="mb-2 block text-sm font-medium text-stone-700">
-          Profile Image URL
+        <label
+          htmlFor="profile-image-file"
+          className="mb-2 block text-sm font-medium text-stone-700"
+        >
+          Upload Profile Image
+        </label>
+
+        <input
+          id="profile-image-file"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleImageUpload}
+          disabled={uploading || loading}
+          className="w-full rounded-lg border border-stone-300 px-4 py-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-rose-50 file:px-4 file:py-2 file:font-semibold file:text-rose-700"
+        />
+
+        <p className="mt-1 text-xs text-stone-500">
+          JPG, PNG, WEBP, or GIF. Maximum size: 3 MB.
+        </p>
+
+        {uploading && (
+          <p className="mt-2 text-sm text-rose-600">
+            Uploading image...
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label
+          htmlFor="profile-image"
+          className="mb-2 block text-sm font-medium text-stone-700"
+        >
+          Or Enter Profile Image URL
         </label>
         <input
           id="profile-image"
@@ -124,14 +224,24 @@ export default function ProfileForm({
           placeholder="https://example.com/image.jpg"
           className="w-full rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-100"
         />
-        <p className="mt-1 text-xs text-stone-500">
-          Enter a publicly accessible image URL.
-        </p>
       </div>
+
+      {image && (
+        <div>
+          <p className="mb-2 text-sm font-medium text-stone-700">
+            Image Preview
+          </p>
+          <img
+            src={image}
+            alt="Profile preview"
+            className="h-20 w-20 rounded-full border border-stone-200 object-cover"
+          />
+        </div>
+      )}
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || uploading}
         className="rounded-lg bg-rose-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Saving..." : "Save Changes"}
