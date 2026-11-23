@@ -1,10 +1,15 @@
 
+import { connection } from "next/server";
 import { getServices } from "@/lib/services";
 import ServiceCard from "@/components/services/ServiceCard";
 
 export default async function FeaturedServices() {
+  // Load featured services at request time, not during prerendering.
+  await connection();
+
   try {
     const result = await getServices({ page: 1, limit: 50 });
+
     const services = result.data
       .filter((service) => service.status === "active")
       .slice(0, 6);
@@ -38,7 +43,9 @@ export default async function FeaturedServices() {
         </div>
       </section>
     );
-  } catch {
+  } catch (error) {
+    console.error("Featured services loading failed:", error);
+
     return (
       <section className="py-16 text-center">
         <p className="text-stone-600">
