@@ -137,36 +137,39 @@ const [payingId, setPayingId] = useState<string | null>(null);
     }
   }
 
-  async function handleDemoPayment(appointmentId: string) {
+ 
+async function handleStripePayment(appointmentId: string) {
   setPayingId(appointmentId);
   setFeedback("");
   setError("");
 
   try {
     const result = await authenticatedApiFetch(
-      "/api/transactions/demo",
+      "/api/transactions/checkout",
       {
         method: "POST",
         body: JSON.stringify({ appointmentId }),
       }
     );
 
-    setFeedback(
-      result?.message ||
-        "Demo payment completed. No real money was charged."
-    );
+    const checkoutUrl = result?.data?.url;
 
-    await loadAppointments();
+    if (!checkoutUrl) {
+      throw new Error("Unable to create payment checkout.");
+    }
+
+    window.location.assign(checkoutUrl);
   } catch (err) {
     setError(
       err instanceof Error
         ? err.message
-        : "Unable to complete demo payment."
+        : "Unable to start payment."
     );
-  } finally {
+
     setPayingId(null);
   }
 }
+
 
   if (isPending || isLoading) {
     return (
@@ -315,13 +318,13 @@ const [payingId, setPayingId] = useState<string | null>(null);
       </div>
 
       <button
-        onClick={() => handleDemoPayment(appointment._id)}
+        onClick={() => handleStripePayment(appointment._id)}
         disabled={payingId === appointment._id}
         className="rounded-full bg-rose-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {payingId === appointment._id
           ? "Processing..."
-          : "Pay Now (Demo)"}
+          : "Pay Now"}
       </button>
     </div>
   )}
