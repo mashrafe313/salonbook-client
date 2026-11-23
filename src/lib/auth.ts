@@ -63,20 +63,24 @@ export const auth = betterAuth({
     modelName: "users",
 
     additionalFields: {
-      role: {
-        type: "string",
-        required: false,
-        defaultValue: "customer",
-        input: false,
-      },
-
-      isBlocked: {
-        type: "boolean",
-        required: false,
-        defaultValue: false,
-        input: false,
-      },
-    },
+  role: {
+    type: "string",
+    required: false,
+    defaultValue: "customer",
+    input: false,
+  },
+  isBlocked: {
+    type: "boolean",
+    required: false,
+    defaultValue: false,
+    input: false,
+  },
+ phoneNumber: {
+  type: "string",
+  required: false,
+  input: true,
+},
+},
   },
 
   emailAndPassword: {

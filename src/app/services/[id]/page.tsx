@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServiceById } from "@/lib/services";
+import AppointmentBookingForm from "@/components/services/AppointmentBookingForm";
 
 export default async function ServiceDetailsPage({
   params,
@@ -81,6 +82,11 @@ export default async function ServiceDetailsPage({
             </Link>
           </div>
         </div>
+
+        <AppointmentBookingForm
+          serviceId={service._id}
+          serviceStatus={service.status}
+        />
       </div>
     </main>
   );
