@@ -1,15 +1,26 @@
+
 "use client";
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
+
+  const { data: session, isPending } = authClient.useSession();
 
   const links = [
     { href: "/", label: "Home" },
     { href: "/services", label: "Browse Services" },
   ];
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    router.refresh();
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone-200 bg-white/95 backdrop-blur">
@@ -23,25 +34,42 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-stone-700 transition hover:text-rose-700"
+              className="text-sm font-medium text-stone-700 hover:text-rose-700"
             >
               {link.label}
             </Link>
           ))}
 
-          <Link
-            href="/sign-in"
-            className="rounded-full border border-rose-700 px-5 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50"
-          >
-            Sign In
-          </Link>
-
-          <Link
-            href="/sign-up"
-            className="rounded-full bg-rose-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-rose-800"
-          >
-            Get Started
-          </Link>
+          {!isPending && (
+            session?.user ? (
+              <>
+                <span className="text-sm font-medium text-stone-700">
+                  Hi, {session.user.name || "User"}
+                </span>
+                <button
+                  onClick={handleSignOut}
+                  className="rounded-full bg-rose-700 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-800"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/sign-in"
+                  className="rounded-full border border-rose-700 px-5 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className="rounded-full bg-rose-700 px-5 py-2 text-sm font-semibold text-white hover:bg-rose-800"
+                >
+                  Get Started
+                </Link>
+              </>
+            )
+          )}
         </div>
 
         <button
@@ -67,12 +95,34 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <Link href="/sign-in" onClick={() => setMenuOpen(false)}>
-            Sign In
-          </Link>
-          <Link href="/sign-up" onClick={() => setMenuOpen(false)}>
-            Get Started
-          </Link>
+
+          {!isPending && (
+            session?.user ? (
+              <>
+                <span className="font-medium text-stone-700">
+                  Hi, {session.user.name || "User"}
+                </span>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="text-left font-semibold text-rose-700"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in" onClick={() => setMenuOpen(false)}>
+                  Sign In
+                </Link>
+                <Link href="/sign-up" onClick={() => setMenuOpen(false)}>
+                  Get Started
+                </Link>
+              </>
+            )
+          )}
         </div>
       )}
     </header>
