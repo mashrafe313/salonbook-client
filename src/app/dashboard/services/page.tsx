@@ -1,7 +1,12 @@
-
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 
 import { authClient } from "@/lib/auth-client";
@@ -47,12 +52,15 @@ export default function ManageServicesPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [form, setForm] = useState<ServiceForm>(initialForm);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [notice, setNotice] = useState("");
-  const [noticeType, setNoticeType] = useState<"success" | "error">("success");
+  const [noticeType, setNoticeType] = useState<"success" | "error">(
+    "success"
+  );
 
   const [confirmDeactivate, setConfirmDeactivate] = useState<string | null>(
     null
@@ -107,14 +115,82 @@ export default function ManageServicesPage() {
     setEditingId(null);
   }
 
-  function handleFormChange(
-    field: keyof ServiceForm,
-    value: string
-  ) {
+  function handleFormChange(field: keyof ServiceForm, value: string) {
     setForm((previous) => ({
       ...previous,
       [field]: value,
     }));
+  }
+
+  async function handleServiceImageUpload(
+    event: ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      showNotice(
+        "Please select a JPG, PNG, WEBP, or GIF image.",
+        "error"
+      );
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      showNotice("Image size must be 3 MB or less.", "error");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      setNotice("");
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const result = (await authenticatedApiFetch(
+        "/api/uploads/image",
+        {
+          method: "POST",
+          body: formData,
+        }
+      )) as {
+        data?: {
+          url?: string;
+        };
+      };
+
+      if (!result?.data?.url) {
+        throw new Error("Image upload failed. Please try again.");
+      }
+
+      handleFormChange("image", result.data.url);
+
+      showNotice(
+        "Image uploaded successfully. Save the service to apply it.",
+        "success"
+      );
+    } catch (error) {
+      showNotice(
+        error instanceof Error
+          ? error.message
+          : "Could not upload image.",
+        "error"
+      );
+    } finally {
+      setUploadingImage(false);
+      event.target.value = "";
+    }
   }
 
   function handleEdit(service: Service) {
@@ -236,26 +312,30 @@ export default function ManageServicesPage() {
     }
   }
 
-  if (isPending || loading && !session) {
+  if (isPending || (loading && !session)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-50">
-        <p className="font-medium text-stone-600">Loading dashboard...</p>
+        <p className="font-medium text-stone-600">
+          Loading dashboard...
+        </p>
       </div>
     );
   }
 
   const user = session?.user as
-  | {
-      role?: string;
-      name?: string;
-      email?: string;
-    }
-  | undefined;
+    | {
+        role?: string;
+        name?: string;
+        email?: string;
+      }
+    | undefined;
 
   if (!session || user?.role !== "admin") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-stone-50">
-        <p className="text-stone-600">Checking administrator access...</p>
+        <p className="text-stone-600">
+          Checking administrator access...
+        </p>
       </div>
     );
   }
@@ -322,6 +402,7 @@ export default function ManageServicesPage() {
               }`}
             >
               {notice}
+
               <button
                 type="button"
                 onClick={() => setNotice("")}
@@ -365,6 +446,7 @@ export default function ManageServicesPage() {
                   <label className="mb-2 block text-sm font-semibold text-stone-700">
                     Service Name
                   </label>
+
                   <input
                     required
                     minLength={2}
@@ -382,6 +464,7 @@ export default function ManageServicesPage() {
                   <label className="mb-2 block text-sm font-semibold text-stone-700">
                     Category
                   </label>
+
                   <input
                     required
                     minLength={2}
@@ -399,6 +482,7 @@ export default function ManageServicesPage() {
                   <label className="mb-2 block text-sm font-semibold text-stone-700">
                     Price (BDT)
                   </label>
+
                   <input
                     required
                     type="number"
@@ -417,6 +501,7 @@ export default function ManageServicesPage() {
                   <label className="mb-2 block text-sm font-semibold text-stone-700">
                     Duration (minutes)
                   </label>
+
                   <input
                     required
                     type="number"
@@ -432,26 +517,69 @@ export default function ManageServicesPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-stone-700">
-                  Image URL
-                </label>
-                <input
-                  required
-                  type="url"
-                  value={form.image}
-                  onChange={(e) =>
-                    handleFormChange("image", e.target.value)
-                  }
-                  placeholder="https://example.com/service-image.jpg"
-                  className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-100"
-                />
+              {/* Service Image */}
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-stone-700">
+                    Upload Service Image
+                  </label>
+
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleServiceImageUpload}
+                    disabled={uploadingImage || saving}
+                    className="w-full rounded-xl border border-stone-300 px-4 py-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-rose-50 file:px-4 file:py-2 file:font-semibold file:text-rose-700"
+                  />
+
+                  <p className="mt-1 text-xs text-stone-500">
+                    JPG, PNG, WEBP, or GIF. Maximum size: 3 MB.
+                  </p>
+
+                  {uploadingImage && (
+                    <p className="mt-2 text-sm text-rose-600">
+                      Uploading image...
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-stone-700">
+                    Or Enter Image URL
+                  </label>
+
+                  <input
+                    required
+                    type="url"
+                    value={form.image}
+                    onChange={(e) =>
+                      handleFormChange("image", e.target.value)
+                    }
+                    placeholder="https://example.com/service-image.jpg"
+                    className="w-full rounded-xl border border-stone-300 px-4 py-3 outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-100"
+                  />
+                </div>
+
+                {form.image && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold text-stone-700">
+                      Image Preview
+                    </p>
+
+                    <img
+                      src={form.image}
+                      alt="Service image preview"
+                      className="h-32 w-32 rounded-xl border border-stone-200 object-cover"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-stone-700">
                   Description
                 </label>
+
                 <textarea
                   required
                   minLength={10}
@@ -470,6 +598,7 @@ export default function ManageServicesPage() {
                 <label className="mb-2 block text-sm font-semibold text-stone-700">
                   Service Status
                 </label>
+
                 <select
                   value={form.status}
                   onChange={(e) =>
@@ -487,14 +616,16 @@ export default function ManageServicesPage() {
 
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || uploadingImage}
                 className="rounded-full bg-rose-700 px-7 py-3 font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving
-                  ? "Saving..."
-                  : editingId
-                    ? "Update Service"
-                    : "Add Service"}
+                {uploadingImage
+                  ? "Uploading Image..."
+                  : saving
+                    ? "Saving..."
+                    : editingId
+                      ? "Update Service"
+                      : "Add Service"}
               </button>
             </form>
           </section>
@@ -506,6 +637,7 @@ export default function ManageServicesPage() {
                 <h2 className="text-xl font-bold text-stone-900">
                   All Services
                 </h2>
+
                 <p className="mt-1 text-sm text-stone-500">
                   Manage your existing salon services.
                 </p>
@@ -530,6 +662,7 @@ export default function ManageServicesPage() {
                 <p className="font-semibold text-stone-800">
                   No services found.
                 </p>
+
                 <p className="mt-2 text-sm text-stone-500">
                   Add your first salon service using the form above.
                 </p>
@@ -561,6 +694,7 @@ export default function ManageServicesPage() {
                           <p className="text-xs font-semibold uppercase tracking-wider text-rose-700">
                             {service.category}
                           </p>
+
                           <h3 className="mt-1 text-lg font-bold text-stone-900">
                             {service.serviceName}
                           </h3>
@@ -584,13 +718,17 @@ export default function ManageServicesPage() {
                       <div className="mt-4 flex justify-between border-t border-stone-100 pt-4">
                         <div>
                           <p className="text-xs text-stone-500">Price</p>
+
                           <p className="font-bold text-rose-700">
                             ৳{Number(service.price).toLocaleString("en-BD")}
                           </p>
                         </div>
 
                         <div className="text-right">
-                          <p className="text-xs text-stone-500">Duration</p>
+                          <p className="text-xs text-stone-500">
+                            Duration
+                          </p>
+
                           <p className="font-semibold text-stone-800">
                             {service.duration} minutes
                           </p>
