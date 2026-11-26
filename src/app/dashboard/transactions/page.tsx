@@ -143,7 +143,11 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="space-y-7">
+
+
+  <div className="mx-auto w-full max-w-7xl space-y-7 px-4 sm:px-6 lg:px-8">
+
+
       {/* Header */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
