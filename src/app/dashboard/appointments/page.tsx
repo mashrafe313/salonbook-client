@@ -29,6 +29,7 @@ function formatDate(date: string) {
 function formatTime(time: string) {
   const [hours, minutes] = time.split(":").map(Number);
   const date = new Date();
+
   date.setHours(hours, minutes, 0, 0);
 
   return date.toLocaleTimeString("en-US", {
@@ -65,8 +66,9 @@ export default function MyAppointmentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
-const [payingId, setPayingId] = useState<string | null>(null);
+
   const user = session?.user as
     | { role?: string; isBlocked?: boolean }
     | undefined;
@@ -110,6 +112,20 @@ const [payingId, setPayingId] = useState<string | null>(null);
       return;
     }
 
+    // Handle return from Stripe Checkout.
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get("payment");
+
+    if (payment === "success") {
+      setFeedback(
+        "Checkout completed. Your payment is being verified."
+      );
+    } else if (payment === "cancelled") {
+      setFeedback(
+        "Payment was cancelled. You can try again when ready."
+      );
+    }
+
     void loadAppointments();
   }, [isPending, session, user?.role, router, loadAppointments]);
 
@@ -121,10 +137,13 @@ const [payingId, setPayingId] = useState<string | null>(null);
     try {
       await authenticatedApiFetch(
         `/api/appointments/${appointmentId}/cancel`,
-        { method: "PATCH" }
+        {
+          method: "PATCH",
+        }
       );
 
       setFeedback("Appointment cancelled successfully.");
+
       await loadAppointments();
     } catch (err) {
       setError(
@@ -137,44 +156,45 @@ const [payingId, setPayingId] = useState<string | null>(null);
     }
   }
 
- 
-async function handleStripePayment(appointmentId: string) {
-  setPayingId(appointmentId);
-  setFeedback("");
-  setError("");
+  async function handleStripePayment(appointmentId: string) {
+    setPayingId(appointmentId);
+    setFeedback("");
+    setError("");
 
-  try {
-    const result = await authenticatedApiFetch(
-      "/api/transactions/checkout",
-      {
-        method: "POST",
-        body: JSON.stringify({ appointmentId }),
+    try {
+      const result = await authenticatedApiFetch(
+        "/api/transactions/checkout",
+        {
+          method: "POST",
+          body: JSON.stringify({ appointmentId }),
+        }
+      );
+
+      const checkoutUrl = result?.data?.url;
+
+      if (!checkoutUrl) {
+        throw new Error("Unable to create payment checkout.");
       }
-    );
 
-    const checkoutUrl = result?.data?.url;
+      // Redirect customer to Stripe Checkout.
+      window.location.assign(checkoutUrl);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to start payment."
+      );
 
-    if (!checkoutUrl) {
-      throw new Error("Unable to create payment checkout.");
+      setPayingId(null);
     }
-
-    window.location.assign(checkoutUrl);
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Unable to start payment."
-    );
-
-    setPayingId(null);
   }
-}
-
 
   if (isPending || isLoading) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center bg-stone-50 px-5">
-        <p className="text-stone-600">Loading your appointments...</p>
+        <p className="text-stone-600">
+          Loading your appointments...
+        </p>
       </main>
     );
   }
@@ -186,18 +206,22 @@ async function handleStripePayment(appointmentId: string) {
   return (
     <main className="min-h-screen bg-stone-50 px-5 py-12">
       <div className="mx-auto max-w-6xl">
+        {/* Header */}
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-widest text-rose-700">
             Customer Dashboard
           </p>
+
           <h1 className="mt-2 text-3xl font-bold text-stone-900">
             My Appointments
           </h1>
+
           <p className="mt-2 text-stone-600">
             View and manage your salon appointment requests.
           </p>
         </div>
 
+        {/* Feedback */}
         {feedback && (
           <div
             role="status"
@@ -207,6 +231,7 @@ async function handleStripePayment(appointmentId: string) {
           </div>
         )}
 
+        {/* Error */}
         {error && (
           <div
             role="alert"
@@ -216,15 +241,19 @@ async function handleStripePayment(appointmentId: string) {
           </div>
         )}
 
+        {/* Empty state */}
         {appointments.length === 0 && !error ? (
           <div className="rounded-2xl border border-stone-200 bg-white px-6 py-16 text-center shadow-sm">
             <div className="text-4xl">📅</div>
+
             <h2 className="mt-4 text-xl font-bold text-stone-900">
               No appointments yet
             </h2>
+
             <p className="mt-2 text-stone-600">
               Your appointment requests will appear here.
             </p>
+
             <button
               onClick={() => router.push("/services")}
               className="mt-6 rounded-full bg-rose-700 px-7 py-3 font-semibold text-white transition hover:bg-rose-800"
@@ -240,6 +269,7 @@ async function handleStripePayment(appointmentId: string) {
                 className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+                  {/* Appointment details */}
                   <div>
                     <h2 className="text-xl font-bold text-stone-900">
                       {appointment.serviceName}
@@ -265,9 +295,9 @@ async function handleStripePayment(appointmentId: string) {
                           Price:
                         </span>{" "}
                         ৳
-                        {Number(appointment.servicePrice).toLocaleString(
-                          "en-BD"
-                        )}
+                        {Number(
+                          appointment.servicePrice
+                        ).toLocaleString("en-BD")}
                       </p>
 
                       {appointment.message && (
@@ -281,26 +311,36 @@ async function handleStripePayment(appointmentId: string) {
                     </div>
                   </div>
 
+                  {/* Appointment and payment status */}
                   <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-stone-500">
                         Appointment:
                       </span>
+
                       <StatusBadge status={appointment.status} />
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-stone-500">Payment:</span>
+                      <span className="text-xs text-stone-500">
+                        Payment:
+                      </span>
+
                       <StatusBadge status={appointment.paymentStatus} />
                     </div>
                   </div>
                 </div>
 
+                {/* Cancel appointment */}
                 {appointment.status === "pending" && (
                   <div className="mt-6 border-t border-stone-100 pt-5">
                     <button
-                      onClick={() => handleCancel(appointment._id)}
-                      disabled={cancellingId === appointment._id}
+                      onClick={() =>
+                        handleCancel(appointment._id)
+                      }
+                      disabled={
+                        cancellingId === appointment._id
+                      }
                       className="rounded-full border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {cancellingId === appointment._id
@@ -310,24 +350,41 @@ async function handleStripePayment(appointmentId: string) {
                   </div>
                 )}
 
+                {/* Stripe payment */}
                 {appointment.status === "confirmed" &&
-  appointment.paymentStatus === "unpaid" && (
-    <div className="mt-6 border-t border-stone-100 pt-5">
-      <div className="mb-3 rounded-lg bg-amber-50 p-3 text-xs text-amber-800">
-        Demo payment only. No real money will be charged.
-      </div>
+                  appointment.paymentStatus === "unpaid" && (
+                    <div className="mt-6 border-t border-stone-100 pt-5">
+                      <div className="mb-3 rounded-lg bg-blue-50 p-3 text-xs text-blue-800">
+                        You will be redirected to Stripe
+                        Checkout to complete your payment.
+                        Your appointment will be marked as
+                        paid after payment confirmation.
+                      </div>
 
-      <button
-        onClick={() => handleStripePayment(appointment._id)}
-        disabled={payingId === appointment._id}
-        className="rounded-full bg-rose-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {payingId === appointment._id
-          ? "Processing..."
-          : "Pay Now"}
-      </button>
-    </div>
-  )}
+                      <button
+                        onClick={() =>
+                          handleStripePayment(appointment._id)
+                        }
+                        disabled={
+                          payingId === appointment._id
+                        }
+                        className="rounded-full bg-rose-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {payingId === appointment._id
+                          ? "Redirecting to Stripe..."
+                          : "Pay with Stripe"}
+                      </button>
+                    </div>
+                  )}
+
+                {/* Paid appointment */}
+                {appointment.paymentStatus === "paid" && (
+                  <div className="mt-6 border-t border-stone-100 pt-5">
+                    <div className="rounded-lg bg-green-50 p-3 text-sm font-medium text-green-700">
+                      Payment completed successfully.
+                    </div>
+                  </div>
+                )}
               </article>
             ))}
           </div>

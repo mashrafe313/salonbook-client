@@ -166,17 +166,8 @@ export default function TransactionsPage() {
         </button>
       </div>
 
-      {/* Demo notice */}
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-bold text-amber-900">
-          Demo payment mode
-        </p>
-        <p className="mt-1 text-sm text-amber-800">
-          Transactions marked Demo are simulated payments.
-          No real money has been charged. Stripe Checkout
-          and verified webhooks are not configured yet.
-        </p>
-      </div>
+      
+
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
